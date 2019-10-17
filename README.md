@@ -16,6 +16,16 @@ pip install -e tfr2human
 #### BASIC EXAMPLE
 
 ```
+#
+# CONFIG
+#
+NOISY=True
+NOISE_REDUCER=10
+
+
+#
+# TFR Feature Specs
+#
 INPUT_BANDS=['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B11', 'B12']
 RGB_BANDS=['red','green','blue']
 WATER_BANDS=['water']
@@ -41,6 +51,10 @@ FEATURE_PROPS={
     'nan_frac': tf.float32
 }
 
+
+#
+# PARSE
+#
 def run(parser,take=2,skip=0):
     """ example:
         - parse all data properties (note: you could have also passed `keys` to `.data()` for a subset of properties )
@@ -74,6 +88,7 @@ run(parser,take=1,skip=0)
 
 """ouptut
 
+0 ...
 PROPERTIES:
 {'black_frac': 0.0,
  'cirrus_frac': 0.4398,
