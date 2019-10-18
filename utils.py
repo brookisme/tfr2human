@@ -1,4 +1,5 @@
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 from retrying import retry
 import rasterio as rio
 
