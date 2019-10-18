@@ -53,8 +53,7 @@ def save_to_gcs(
         mimetype=mtype,
         resumable=True)
     path, bucket=_gcs_path_and_bucket(dest,folder,bucket)
-    request=gcs_service(service).objects()
-                                .insert(
+    request=gcs_service(service).objects().insert(
                                     bucket=bucket, 
                                     name=path,
                                     media_body=media)
