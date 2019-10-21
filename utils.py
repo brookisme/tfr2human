@@ -21,7 +21,7 @@ PNG_DRIVER='PNG'
 #
 # IMAGE HELPERS
 #
-def image_profile(lon,lat,crs,im,driver=GTIFF_DRIVER):
+def image_profile(lon,lat,crs,im,resolution,driver=GTIFF_DRIVER):
     count,height,width=im.shape
     x,y=transform(Proj(init='epsg:4326'),Proj(init=crs),lon,lat)
     x,y=int(round(x)),int(round(y))
@@ -34,7 +34,7 @@ def image_profile(lon,lat,crs,im,driver=GTIFF_DRIVER):
         'dtype': im.dtype,
         'height': height,
         'nodata': None,
-        'transform': Affine(RESOLUTION,0,xmin,0,-RESOLUTION,ymin),
+        'transform': Affine(resolution,0,xmin,0,-resolution,ymin),
         'width': width }
     if driver==GTIFF_DRIVER:
         profile.update({
