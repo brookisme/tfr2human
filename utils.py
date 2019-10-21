@@ -2,6 +2,9 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from retrying import retry
 import rasterio as rio
+from pyproj import Proj, transform
+from affine import Affine
+from rasterio.crs import CRS
 
 
 DEFAULT_MIME_TYPE='application/json'
@@ -11,8 +14,40 @@ CSV_MIME_TYPE='text/csv'
 WAIT_EXP_MULTIPLIER=1000
 WAIT_EXP_MAX=1000
 STOP_MAX_ATTEMPT=7
+GTIFF_DRIVER='GTiff'
+PNG_DRIVER='PNG'
 
 
+#
+# IMAGE HELPERS
+#
+def image_profile(lon,lat,crs,im,driver=GTIFF_DRIVER):
+    count,height,width=im.shape
+    x,y=transform(Proj(init='epsg:4326'),Proj(init=crs),lon,lat)
+    x,y=int(round(x)),int(round(y))
+    xmin=x-int(width/2)
+    ymin=y-int(height/2)
+    profile={
+        'count': count,
+        'crs': CRS.from_string(crs),
+        'driver': GTIFF_DRIVER,
+        'dtype': im.dtype,
+        'height': height,
+        'nodata': None,
+        'transform': Affine(RESOLUTION,0,xmin,0,-RESOLUTION,ymin),
+        'width': width }
+    if driver==GTIFF_DRIVER:
+        profile.update({
+            'compress': 'lzw',
+            'interleave': 'pixel',
+            'tiled': False
+        })
+    return profile
+
+
+#
+# GOOGLE STORAGE HELPERS
+#
 def gcs_service(service=None):
     """ get gcloud storage client if it does not already exist """
     if not service:
@@ -114,7 +149,6 @@ def csv_to_gcs(
         bucket=bucket,
         service=service,
         return_path=return_path)
-
 
 
 #
