@@ -13,103 +13,182 @@ pip install -e tfr2human
 
 ---
 
-#### BASIC EXAMPLE
+#### PARSER
 
+Usage (see complete example at the bottom of this readme):
+
+```python
+TFR_LIST=<list of paths to tfrecords>
+FEATURE_PROPS=<dictionary of properties and property types>
+BANDS=<list of band names or dict describing bands>
+SIZE=<DIMENSIONALITY OF BANDS>
+
+parser=tfp.TFRParser(
+    TFR_LIST,
+    specs=FEATURE_PROPS,
+    band_specs=BANDS,
+    dims=[SIZE,SIZE])
+
+for i,element in enumerate(parser.dataset)
+    ...
+    some_image=parser.image(element,bands=SOME_IM_BANDS,dtype=np.uint8)
+    some_data=parser.data(element,keys=SOME_KEYS)
 ```
+
+
+---
+
+#### UTILS
+
+Here is a quick run down of the methods:
+
+    * get_batches: break datasets into batches. note this is different than TF's [batch](https://www.tensorflow.org/api_docs/python/tf/data/TFRecordDataset#batch) since it returns batches of datasets to be parsed rather than parsing a batch at a time.
+    * image_profile: returns an image (rasterio) profile for a given lon/lat/crs/resolution/np.array
+    * gcs_service: returns a google cloud storage client
+    * save_to_gcs: save generic file to google cloud storage
+    * csv/image_to_gcs: save csv/image to google cloud storage
+
+---
+
+#### EXAMPLE
+
+```python
 #
 # CONFIG
 #
 NOISY=True
 NOISE_REDUCER=10
+RESOLUTION=20
+SIZE=384
+MIN_WATER_RATIO=0.005
+MAX_WATER_RATIO=0.96
+MAX_WATER_NO_DATA_COUNT=int((SIZE**2)*(0.25))
+MAX_S1_NAN_COUNT=int((SIZE**2)*(0.01))
+MAX_S1_ZERO_COUNT=int((SIZE**2)*(0.1))
+
+WATER_COLUMNS={
+    0: 'no_data_count',
+    1: 'not_water_count',
+    2: 'water_count'
+}
 
 
 #
 # TFR Feature Specs
 #
-INPUT_BANDS=['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B11', 'B12']
-RGB_BANDS=['red','green','blue']
 WATER_BANDS=['water']
-S1_BANDS=['VV','VH','angle']
-CLOUD_BANDS=['cirrus','opaque']
-BANDS=INPUT_BANDS+RGB_BANDS+CLOUD_BANDS+WATER_BANDS+S1_BANDS
+S1_BANDS=['VV','VH','angle','VV_mean','VH_mean']
+BANDS=S1_BANDS+WATER_BANDS
 
 FEATURE_PROPS={
     'tile_id': tf.string,
     'crs': tf.string,
     'year': tf.float32,
     'month': tf.float32,
-    'surface_water_date': tf.string,
     'lon': tf.float32,
     'lat': tf.float32,
     'x_offset': tf.float32,
     'y_offset': tf.float32,
-    'input_date': tf.string,
-    'water_frac': tf.float32,
-    'black_frac': tf.float32,
-    'opaque_frac': tf.float32,
-    'cirrus_frac': tf.float32,
-    'nan_frac': tf.float32
+    'biome_num': tf.float32,
+    'biome_name': tf.string,
+    'eco_id': tf.float32,
+    'eco_name': tf.string,
+    'grid': tf.string,
+    'grid_index': tf.int64
+    # 'nb_s1_images': tf.float32
 }
+```
+```python
+#
+# HELPERS
+#
+def process_water(parser,element):
+  water=parser.image(element,bands=WATER_BANDS,dtype=np.uint8)
+  values,counts=np.unique(water,return_counts=True)
+  props={v: c for (v,c) in zip(values,counts)}
+  props={WATER_COLUMNS[i]: props.get(i,0) for i in range(3)}
+  water_ratio=props['water_count']/props['not_water_count']
+  props['water_ratio']=water_ratio
+  props['valid_water']=((MIN_WATER_RATIO<=water_ratio) and 
+            (water_ratio<MAX_WATER_RATIO) and 
+            (props['no_data_count']<MAX_WATER_NO_DATA_COUNT))
+  return water, props
 
 
-#
-# PARSE
-#
-def run(parser,take=2,skip=0):
+def process_s1(parser,element):
+  s1=parser.image(element,bands=S1_BANDS,dtype=np.float32)
+  props={ 
+      's1_na_count': np.count_nonzero(np.isnan(s1)),
+      's1_zero_count': np.count_nonzero((s1[0]*s1[1])==0),
+  }
+  props['valid_s1']=((props['s1_na_count']<MAX_S1_NAN_COUNT) and
+                     (props['s1_zero_count']<MAX_S1_ZERO_COUNT))
+  return s1, props
+
+
+def image_name(tile_id,year,month):
+  name=re.sub('S1','TILE',tile_id)
+  return f'{name}_{int(year)}{str(int(month)).zfill(2)}.tif'
+
+```
+
+```python
+def run(parser,take=None,skip=0,batch_size=100):
     """ example:
         - parse all data properties (note: you could have also passed `keys` to `.data()` for a subset of properties )
         - parse bands into distinct images
     """
-    rows=[]
-    for i,element in enumerate(parser.dataset.skip(skip).take(take)):
-        if NOISY and (not (i%NOISE_REDUCER)): 
-            print(i,'...')
-        props=parser.data(element)
-        print('PROPERTIES:')
-        pprint(props)
-        print()
-        inpt=parser.image(element,bands=INPUT_BANDS,dtype=np.uint16)
-        rgb=parser.image(element,bands=RGB_BANDS,dtype=np.uint8)
-        water=parser.image(element,bands=WATER_BANDS,dtype=np.uint8)
-        s1=parser.image(element,bands=S1_BANDS,dtype=np.float32)
-        print('SENTINEL-1:',s1.shape,s1.max(),s1.min())
-        print('SENTINEL-2:',inpt.shape,inpt.max(),inpt.min())
-        print('RGB:',rgb.shape,rgb.max(),rgb.min())
-        print('TARGET:',water.shape,water.max(),water.min())
+    parsed_data=parser.dataset.skip(skip)
+    if take:
+      parsed_data=parsed_data.take(take)
+    for batch_index, batch in utils.get_batches(parsed_data,batch_size=batch_size):
+      print('\n'*2)
+      print('='*75)
+      print('BATCH:',batch_index)
+      print('='*75)
+      rows=[]
+      for i,element in enumerate(batch):
+          if NOISY and (not (i%NOISE_REDUCER)): 
+              print(f'\t- {i}...')
+          props=parser.data(element)
+          water, water_props=process_water(parser,element)
+          s1, s1_props=process_s1(parser,element)
+          props.update(water_props)
+          props.update(s1_props)
+          rows.append(props)
+          if props['valid_water'] and props['valid_s1']:
+              lon=props['lon']
+              lat=props['lat']
+              crs=props['crs']
+              name=image_name(props['tile_id'],props['year'],props['month'])
+              utils.image_to_gcs(
+                  s1,
+                  name,
+                  utils.image_profile(lon,lat,crs,RESOLUTION,s1),
+                  folder=f'{GCS_FOLDER}/S1',
+                  bucket=GCS_BUCKET)
+              utils.image_to_gcs(
+                  water,
+                  name,
+                  utils.image_profile(lon,lat,crs,RESOLUTION,water),
+                  folder=f'{GCS_FOLDER}/GSW',
+                  bucket=GCS_BUCKET)
+      df=pd.DataFrame(rows)
+      gcs_path=utils.csv_to_gcs(
+          df,
+          f'EXPORTS_BATCH-{batch_index}.csv',
+          folder=f'{GCS_FOLDER}/CSV',
+          bucket=GCS_BUCKET)
+      print('-'*75)
+      print(gcs_path)
+```
 
-
-parser=TFRParser(
+```
+parser=tfp.TFRParser(
     TFR_LIST,
     specs=FEATURE_PROPS,
     band_specs=BANDS,
-    dims=[384,384])
+    dims=[SIZE,SIZE])
 
-run(parser,take=1,skip=0)
-
-"""ouptut
-
-0 ...
-PROPERTIES:
-{'black_frac': 0.0,
- 'cirrus_frac': 0.4398,
- 'crs': 'EPSG:32736',
- 'input_date': '2018-01-19',
- 'lat': -13.60786,
- 'lon': 34.578312,
- 'month': 1.0,
- 'nan_frac': 0.072,
- 'opaque_frac': 0.5502,
- 'surface_water_date': '2018-01-01',
- 'tile_id': 'S2_34.578311242442226_-13.607859586899323',
- 'water_frac': 0.9267,
- 'x_offset': -58.0,
- 'y_offset': -54.0,
- 'year': 2018.0}
-
-SENTINEL-1: (3, 384, 384) 39.162453 0.0
-SENTINEL-2: (12, 384, 384) 4184 329
-RGB: (3, 384, 384) 255 103
-TARGET: (1, 384, 384) 2 0
-
-"""
+run(parser,take=TAKE,skip=SKIP,batch_size=BATCH_SIZE)
 ```
