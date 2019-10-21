@@ -42,7 +42,9 @@ for i,element in enumerate(parser.dataset)
 
 Here is a quick run down of the methods:
 
-* get_batches: break datasets into batches. note this is different than TF's [batch](https://www.tensorflow.org/api_docs/python/tf/data/TFRecordDataset#batch) since it returns batches of datasets to be parsed rather than parsing a batch at a time.
+* get_batches: break datasets into batches. 
+    - this is different than TF's [batch](https://www.tensorflow.org/api_docs/python/tf/data/TFRecordDataset#batch) since it returns batches of datasets to be parsed rather than parsing a batch at a time.
+    - warning: this relies on `skip` and `take` and therefor becomes very slow for large datasets.  currently looking for a better way to do this.
 * image_profile: returns an image (rasterio) profile for a given lon/lat/crs/resolution/np.array
 * gcs_service: returns a google cloud storage client
 * save_to_gcs: save generic file to google cloud storage
