@@ -21,7 +21,7 @@ PNG_DRIVER='PNG'
 #
 # IMAGE HELPERS
 #
-def image_profile(lon,lat,crs,im,resolution,driver=GTIFF_DRIVER):
+def image_profile(lon,lat,crs,resolution,im,driver=GTIFF_DRIVER):
     count,height,width=im.shape
     x,y=transform(Proj(init='epsg:4326'),Proj(init=crs),lon,lat)
     x,y=int(round(x)),int(round(y))
