@@ -18,6 +18,27 @@ GTIFF_DRIVER='GTiff'
 PNG_DRIVER='PNG'
 
 
+
+#
+# TFRecord HELPERS
+#
+def get_batches(dataset,batch_size):
+  batch_index=0
+  new_batch_index=0
+  batches=True
+  while batches:
+    batch=dataset.skip(batch_index*batch_size).take(batch_size)
+    for _ in batch.take(1):
+      new_batch_index+=1
+    if new_batch_index==batch_index:
+      batches=False
+    else:
+      batch_index=new_batch_index
+      yield batch_index, batch
+
+
+
+
 #
 # IMAGE HELPERS
 #
@@ -43,6 +64,8 @@ def image_profile(lon,lat,crs,resolution,im,driver=GTIFF_DRIVER):
             'tiled': False
         })
     return profile
+
+
 
 
 #
