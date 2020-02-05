@@ -1,3 +1,4 @@
+import os
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from retrying import retry
@@ -85,7 +86,7 @@ def gcs_service(service=None):
     stop_max_attempt_number=STOP_MAX_ATTEMPT)
 def save_to_gcs(
         src,
-        dest,
+        dest=None,
         mtype=DEFAULT_MIME_TYPE,
         folder=None,
         bucket=None,
@@ -108,6 +109,8 @@ def save_to_gcs(
             - if true return gc://{bucket}/{path}
             - else return response from request  
     """
+    if not dest:
+        dest=os.path.basename(src)
     media = MediaFileUpload(
         src, 
         mimetype=mtype,
