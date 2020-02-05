@@ -8,7 +8,7 @@ setup(
   author_email = 'brook.williams@gmail.com',
   url = 'https://github.com/brookisme/tfr2human',
   download_url = 'https://github.com/brookisme/tfr2human/tarball/0.1',
-  keywords = ['TensorFlow','Tensor Flow Records','TFRecords,'machine learning'],
+  keywords = ['TensorFlow','Tensor Flow Records','TFRecords','machine learning'],
   include_package_data=True,
   data_files=[
     (
