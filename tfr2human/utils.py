@@ -6,18 +6,27 @@ import rasterio as rio
 from pyproj import Proj, transform
 from affine import Affine
 from rasterio.crs import CRS
-
-
-DEFAULT_MIME_TYPE='application/json'
-TMP_NAME='tmp'
-DEFAULT_IMAGE_MIME_TYPE='image/tiff'
+#
+# CONSTANTS
+#
+TIF_MIME_TYPE='image/tiff'
+PNG_MIME_TYPE='image/png'
 CSV_MIME_TYPE='text/csv'
-WAIT_EXP_MULTIPLIER=1000
-WAIT_EXP_MAX=1000
-STOP_MAX_ATTEMPT=7
+JSON_MIME_TYPE='application/json'
+GEOJSON_MIME_TYPE='application/geo+json'
 GTIFF_DRIVER='GTiff'
 PNG_DRIVER='PNG'
 
+
+#
+# CONFIG
+#
+WAIT_EXP_MULTIPLIER=1000
+WAIT_EXP_MAX=1000
+STOP_MAX_ATTEMPT=7
+TMP_NAME='tmp'
+DEFAULT_IMAGE_MIME_TYPE=TIF_MIME_TYPE
+DEFAULT_MIME_TYPE=JSON_MIME_TYPE
 
 
 #
@@ -178,6 +187,28 @@ def csv_to_gcs(
         return_path=return_path)
 
 
+
+def json_to_gcs(
+    dataset,
+    dest,
+    tmp_name=TMP_NAME,
+    folder=None,
+    bucket=None,
+    service=None,
+    return_path=True):
+    """
+    """  
+    if not isinstance(dataset,str):
+        dataset.to_csv(tmp_name,index=False)
+        dataset=tmp_name
+    return save_to_gcs(
+        src=dataset,
+        dest=dest,
+        mtype=JSON_MIME_TYPE,
+        folder=folder,
+        bucket=bucket,
+        service=service,
+        return_path=return_path)
 #
 # INTERNAL
 #
