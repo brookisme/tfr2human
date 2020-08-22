@@ -6,7 +6,7 @@ setup(
   ],
   package_dir = {
     'tfr2human': 'tfr2human'
-  }
+  },
   version = '0.0.0.3',
   description = 'Convert TFRecords to images and JSON',
   author = 'Brookie Guzder-Williams',
