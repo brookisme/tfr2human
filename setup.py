@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'tfr2human',
   py_modules = ['tfr2human'],
-  version = '0.0.0.1',
+  version = '0.0.0.2',
   description = 'Convert TFRecords to images and JSON',
   author = 'Brookie Guzder-Williams',
   author_email = 'brook.williams@gmail.com',

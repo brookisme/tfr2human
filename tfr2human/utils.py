@@ -3,7 +3,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from retrying import retry
 import rasterio as rio
-from pyproj import Proj, transform
+from pyproj import Transformer
 from affine import Affine
 from rasterio.crs import CRS
 #
@@ -55,10 +55,9 @@ def get_batches(dataset,batch_size):
 #
 def image_profile(lon,lat,crs,resolution,im,driver=GTIFF_DRIVER):
     count,height,width=im.shape
-    x,y=transform(Proj(init='epsg:4326'),Proj(init=crs),lon,lat)
-    x,y=int(round(x)),int(round(y))
-    xmin=x-int(width/2)
-    ymin=y-int(height/2)
+    x,y=Transformer.from_crs("epsg:4326",crs).transform(lat,lon)
+    xmin=round(x-(width*resolution/2))
+    ymin=round(y-(height*resolution/2))
     profile={
         'count': count,
         'crs': CRS.from_string(crs),
